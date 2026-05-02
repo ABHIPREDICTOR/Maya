@@ -1,0 +1,7 @@
+{
+  "name": "MAYA - AI Voice Assistant",
+  "description": "A sassy, witty, and intelligent Indian female AI assistant created by Abhishek.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
