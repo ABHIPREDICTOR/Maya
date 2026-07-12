@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Mic, MicOff, Loader2, Volume2, VolumeX, Keyboard, Send, Trash2, MessageSquare } from "lucide-react";
+import { Mic, MicOff, Loader2, Volume2, VolumeX, Keyboard, Send, Trash2, MessageSquare, Code2 } from "lucide-react";
 import { getMayaResponse, getMayaAudio, resetMayaSession } from "./services/geminiService";
 import { processCommand } from "./services/commandService";
 import { LiveSessionManager } from "./services/liveService";
 import Avatar from "./components/Avatar";
 import PermissionModal from "./components/PermissionModal";
+import AgentStudio from "./components/AgentStudio";
 import { playPCM } from "./utils/audioUtils";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -36,6 +37,8 @@ export default function App() {
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [showStudio, setShowStudio] = useState(false);
+  const [studioInstruction, setStudioInstruction] = useState<string | undefined>(undefined);
 
   const messagesRef = useRef(messages);
   const liveSessionRef = useRef<LiveSessionManager | null>(null);
@@ -53,8 +56,28 @@ export default function App() {
     }
   }, [isMuted]);
 
+  const isBuildCommand = (text: string): boolean => {
+    const t = text.toLowerCase();
+    const buildVerbs = /\b(make|build|create|banao|bana\s*do|bana\s*de|banade|develop|generate)\b/;
+    const buildTargets = /\b(website|web\s*site|webpage|web\s*page|app|application|game|portfolio|landing\s*page|dashboard|calculator|form|page|site|code|todo|clone)\b/;
+    return buildVerbs.test(t) && buildTargets.test(t);
+  };
+
   const handleTextCommand = useCallback(async (finalTranscript: string) => {
     if (!finalTranscript.trim()) {
+      setAppState("idle");
+      return;
+    }
+
+    // Agent Mode: build/update commands go straight to the Agent Studio (live coding)
+    if (isBuildCommand(finalTranscript)) {
+      setMessages((prev) => [
+        ...prev,
+        { id: Date.now().toString(), sender: "user", text: finalTranscript },
+        { id: Date.now().toString() + "-a", sender: "maya", text: "Ok! Agent Studio mein live bana rahi hoon... dekho!" },
+      ]);
+      setStudioInstruction(finalTranscript);
+      setShowStudio(true);
       setAppState("idle");
       return;
     }
@@ -167,6 +190,18 @@ export default function App() {
 
       {showPermissionModal && <PermissionModal onClose={() => setShowPermissionModal(false)} />}
 
+      <AnimatePresence>
+        {showStudio && (
+          <AgentStudio
+            initialInstruction={studioInstruction}
+            onClose={() => {
+              setShowStudio(false);
+              setStudioInstruction(undefined);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Atmospheric Background Layers */}
       <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <motion.div 
@@ -210,6 +245,16 @@ export default function App() {
         </motion.div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setStudioInstruction(undefined);
+              setShowStudio(true);
+            }}
+            className="p-2.5 rounded-xl transition-all border bg-gradient-to-br from-violet-600/30 to-pink-600/30 border-violet-500/30 hover:border-violet-400/60 hover:scale-105"
+            title="Agent Studio - Live Code Builder"
+          >
+            <Code2 size={20} className="text-violet-300" />
+          </button>
           <button
             onClick={() => setShowChat(!showChat)}
             className={`p-2.5 rounded-xl transition-all border ${showChat ? 'bg-white/10 border-white/20' : 'bg-white/5 border-white/10 opacity-70 hover:opacity-100'}`}
